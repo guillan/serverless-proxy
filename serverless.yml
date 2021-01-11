@@ -1,0 +1,122 @@
+service: serverless-proxy
+
+plugins:
+  - serverless-python-requirements
+  - serverless-prune-plugin
+  - serverless-api-gateway-throttling
+  - serverless-add-api-key
+
+custom:
+  url: http://myurl:80 #to be replaced by backend url
+  vpcId: vpc-123456 #to be replaced by vpc id
+  subnetIds: [ subnet-123, subnet-456, subnet-789 ] #to be replaced by subnet ids
+  pythonRequirements: #serverless-python-requirements configuration
+    dockerizePip: true
+  prune: #serverless-prune-plugin configuration: 3 versions are kept
+    automatic: true
+    number: 3
+  apiGatewayThrottling:
+    maxRequestsPerSecond: 100
+    maxConcurrentRequests: 50
+  apiKeys:
+    - name: secret
+      usagePlan:
+        name: "global-plan"
+        quota:
+          limit: 1000
+          period: DAY
+        throttle:
+          burstLimit: 100
+          rateLimit: 50
+
+resources:
+  Resources:
+    SecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupDescription: SG for Serverless Proxy forwarder
+        VpcId: ${self:custom.vpcId}
+        SecurityGroupEgress:
+          - IpProtocol: tcp
+            FromPort: 80
+            ToPort: 80
+            CidrIp: 0.0.0.0/0
+          - IpProtocol: tcp
+            FromPort: 443
+            ToPort: 443
+            CidrIp: 0.0.0.0/0
+        Tags:
+          - Key: Name
+            Value: serverless-proxy-sg
+
+provider:
+  name: aws
+  runtime: python3.8
+  region: eu-west-1
+  resourcePolicy:
+    - Effect: Deny
+      Principal: "*"
+      Action: execute-api:Invoke
+      Resource:
+        - execute-api:/*/*/forward
+      Condition:
+        NotIpAddress:
+          aws:SourceIp:
+            - 192.30.252.0/22
+            - 185.199.108.0/22
+            - 140.82.112.0/20
+    - Effect: Allow
+      Principal: "*"
+      Action: execute-api:Invoke
+      Resource:
+        - execute-api:/*/*/forward
+      Condition:
+        IpAddress:
+          aws:SourceIp:
+            - 192.30.252.0/22
+            - 185.199.108.0/22
+            - 140.82.112.0/20
+
+functions:
+  serverless-proxy:
+    handler: handler.main
+    name: serverless-proxy
+    description: Lambda Forwarder function
+    memorySize: 512
+    timeout: 1
+    environment:
+      URL: ${self:custom.url}
+    vpc:
+      securityGroupIds:
+        - Ref: SecurityGroup
+      subnetIds: ${self:custom.subnetIds}
+    events:
+      - http:
+          path: forward
+          method: get
+          private: true
+      - http:
+          path: forward
+          method: head
+          private: true
+      - http:
+          path: forward
+          method: post
+          private: true
+      - http:
+          path: forward
+          method: put
+          private: true
+      #- httpApi:
+      #    path: /forward
+      #    method: get
+      #- httpApi:
+      #    path: /forward
+      #    method: head
+      #- httpApi:
+      #    path: /forward
+      #    method: post
+      #- httpApi:
+      #    path: /forward
+      #    method: put
+

@@ -1,0 +1,19 @@
+{
+  "name": "serverless-proxy",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {},
+  "devDependencies": {
+    "serverless-add-api-key": "^4.2.0",
+    "serverless-api-gateway-throttling": "^1.1.0",
+    "serverless-prune-plugin": "^1.4.3",
+    "serverless-python-requirements": "^5.1.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
